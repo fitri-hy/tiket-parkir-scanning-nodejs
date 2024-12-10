@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+</head>
+<body class="w-full bg-neutral-900 text-gray-200 p-4">
+    <section class="w-full lg:flex gap-6">
+        <div class="w-full flex justify-center lg:max-w-screen-sm">
+            <div class="flex flex-col justify-center p-4 bg-neutral-800 rounded">
+                <div class="relative flex flex-col justify-center items-center">
+                    <video id="video" class="h-full w-full min-w-[600px] min-h-[400px] rounded" autoplay></video>
+                    <canvas id="canvas" hidden></canvas>
+                    <div id="scanner-frame" class="hidden lg:flex border-4 border-green-500 absolute lg:w-[250px] lg:h-[250px] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+                </div>
+                <p id="output" class="w-full text-center px-4 pt-4 inline-block">
+                    Scan a QR Code to check ticket details
+                </p>
+            </div>
+        </div>
+        <div class="w-full max-h-[500px] mt-4 lg:mt-0">
+            <table id="ticket-table" class="w-full border-collapse overflow-y-auto">
+                <thead>
+                    <tr class="bg-neutral-800">
+                        <th class="border border-neutral-700 p-2 text-left">Ticket ID</th>
+                        <th class="border border-neutral-700 p-2 text-left">Fee</th>
+                        <th class="border border-neutral-700 p-2 text-left">Duration</th>
+                        <th class="border border-neutral-700 p-2 text-left">Status</th>
+                        <th class="border border-neutral-700 p-2 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="mt-12">
+        <div class="w-full flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">All Data</h2>
+            <button id="refresh-button" class="px-4 py-2 bg-neutral-800 rounded">Refresh Data</button>
+        </div>
+        <table id="ticketsTable" class="pt-2 display responsive nowrap" style="width:100%">
+            <thead class="bg-neutral-800">
+                <tr>
+                    <th class="border border-neutral-700">ID</th>
+                    <th class="border border-neutral-700">IN</th>
+                    <th class="border border-neutral-700">Paid</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% tickets.forEach(ticket => { %>
+                    <tr>
+                        <td class="border border-neutral-700"><%= ticket.id %></td>
+                        <td class="border border-neutral-700">
+                            <%= (() => {
+                                const date = new Date(ticket.createdAt);
+                                const hours = String(date.getHours()).padStart(2, '0');
+                                const minutes = String(date.getMinutes()).padStart(2, '0');
+                                const seconds = String(date.getSeconds()).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const month = String(date.getMonth() + 1).padStart(2, '0'); // Bulan mulai dari 0
+                                const year = date.getFullYear();
+                                return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
+                            })() %>
+                        </td>
+                        <td class="border border-neutral-700"><%= ticket.paid ? 'Paid' : 'Unpaid' %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </section>
+    <audio id="beep-audio" src="/audio/beep.mp3" preload="auto"></audio>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            const table = $('#ticketsTable').DataTable({
+                responsive: true
+            });
+            $('#refresh-button').click(function() {
+                $.ajax({
+                    url: '/api/tickets',
+                    method: 'GET',
+                    success: function(response) {
+                        table.clear();
+                        response.tickets.forEach(ticket => {
+                            table.row.add([
+                                ticket.id,
+                                (() => {
+                                    const date = new Date(ticket.createdAt);
+                                    const hours = String(date.getHours()).padStart(2, '0');
+                                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const year = date.getFullYear();
+                                    return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
+                                })(),
+                                ticket.paid ? 'Paid' : 'Unpaid'
+                            ]).draw();
+                        });
+                    },
+                    error: function() {
+                        alert('Failed to refresh data');
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+        const output = document.getElementById("output");
+        const ticketTableBody = document.querySelector("#ticket-table tbody");
+        const seenTicketIds = new Set();
+        let clearTableTimer = null;
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then((stream) => {
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    console.error('Error accessing camera:', err);
+                    output.textContent = 'Error accessing camera';
+                });
+        }
+
+        let isProcessing = false;
+        async function checkTicket(id) {
+            if (seenTicketIds.has(id)) {
+                output.textContent = 'QR Code has already been scanned';
+                return;
+            }
+            if (isProcessing) {
+                return;
+            }
+
+            isProcessing = true;
+            try {
+                // console.log('Checking ticket:', id);
+                const response = await fetch('/check-ticket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    // console.log('Ticket found:', data);
+                    const beepAudio = document.getElementById('beep-audio');
+                    beepAudio.play();
+                    output.textContent = `Ticket ID: ${data.id}, Fee: Rp${data.fee}, Duration: ${data.duration} hour(s)`;
+                    addTicketToTable(data);
+                    seenTicketIds.add(id);
+                    setTimeout(() => {
+                        seenTicketIds.delete(id);
+                    }, 5000);
+                } else {
+                    console.log('Error response:', data);
+                    output.textContent = data.message || 'Ticket not found';
+                }
+            } catch (error) {
+                console.error('Error checking ticket:', error);
+                output.textContent = 'Error checking ticket';
+            } finally {
+                isProcessing = false;
+            }
+        }
+        async function togglePaymentStatus(ticketId) {
+            // console.log('Trying to toggle status for ticket:', ticketId);
+            const statusSpan = document.getElementById(`status-${ticketId}`);
+            if (!statusSpan) {
+                console.error(`Status span not found for ticket: ${ticketId}`);
+                return;
+            }
+            const currentStatus = statusSpan.textContent;
+            const newStatus = currentStatus === 'Paid' ? 'Unpaid' : 'Paid';
+            try {
+                const response = await fetch('/update-payment-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: ticketId, status: newStatus })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    statusSpan.textContent = newStatus;
+                    const ticketRow = Array.from(ticketTableBody.querySelectorAll('tr')).find(row => row.cells[0].textContent === ticketId);
+                    if (ticketRow) {
+                        const button = ticketRow.querySelector('button');
+                        button.style.display = newStatus === 'Paid' ? 'none' : 'inline-block';
+                    }
+                } else {
+                    console.error('Error updating payment status:', data.message);
+                }
+            } catch (error) {
+                console.error('Error updating payment status:', error);
+            }
+        }
+        function addTicketToTable(ticket) {
+            // console.log('Adding ticket to table:', ticket);
+            const existingRow = Array.from(ticketTableBody.querySelectorAll('tr')).find(row => row.cells[0].textContent === ticket.id);
+            if (existingRow) {
+                existingRow.querySelector('.fee').textContent = `Rp${ticket.fee}`;
+                existingRow.querySelector('.duration').textContent = `${ticket.duration} hour(s)`;
+                existingRow.querySelector('.status').textContent = ticket.paid ? 'Paid' : 'Unpaid';
+                const button = existingRow.querySelector('button');
+                if (ticket.paid) {
+                    button.style.display = 'none';
+                } else {
+                    button.style.display = '';
+                }
+                return;
+            }
+            const row = document.createElement("tr");
+            const statusText = ticket.paid ? 'Paid' : 'Unpaid';
+            const buttonDisabled = ticket.paid ? 'disabled' : '';
+            row.innerHTML = `
+                <td class="border border-neutral-700 p-2 text-left">${ticket.id}</td>
+                <td class="fee border border-neutral-700 p-2 text-left">Rp${ticket.fee}</td>
+                <td class="duration border border-neutral-700 p-2 text-left">${ticket.duration} hour(s)</td>
+                <td class="status border border-neutral-700 p-2 text-left"><span id="status-${ticket.id}">${statusText}</span></td>
+                <td class="border border-neutral-700 p-2 text-left">
+                    <button class="bg-green-700 hover:bg-green-800 rounded px-2 py-1 m-auto 
+                        ${ticket.paid ? 'bg-red-500 opacity-50 cursor-not-allowed' : ''}" 
+                        onclick="togglePaymentStatus('${ticket.id}')"
+                        ${ticket.paid ? 'disabled' : ''}>
+                        PAID
+                    </button>
+                </td>
+                `;
+            ticketTableBody.insertBefore(row, ticketTableBody.firstChild);
+            clearTableAfterTimeout();
+        }
+        function scanQRCode() {
+            if (!video.videoWidth || !video.videoHeight) {
+                requestAnimationFrame(scanQRCode);
+                return;
+            }
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            if (code && !seenTicketIds.has(code.data)) {
+                checkTicket(code.data);
+            }
+            requestAnimationFrame(scanQRCode);
+        }
+        function clearTableAfterTimeout() {
+            if (clearTableTimer) {
+                clearTimeout(clearTableTimer);
+            }
+            clearTableTimer = setInterval(() => {
+                ticketTableBody.innerHTML = '';
+                // console.log('Table cleared');
+            }, 5000);
+        }
+        video.addEventListener('play', scanQRCode);
+        startCamera();
+    </script>
+</section>
+</html>

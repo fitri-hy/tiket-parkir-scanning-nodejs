@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate QR Code</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-4 flex justify-center items-center w-full h-screen bg-neutral-950 text-gray-200">
+    <div class="flex flex-col items-center">
+        <h1 class="text-4xl font-extrabold">
+            Parking Ticket
+        </h1>
+        <h1 class="text-xl font-bold mt-4" id="datetime"></h1>
+        <button class="px-4 py-2 rounded bg-green-800 hover:bg-green-900 mt-6" id="generateBtn">
+            Create Ticket
+        </button>
+        <div id="qrContainer" class="mt-4 flex flex-col items-center justify-center gap-2">
+            <!-- QR Code will appear here -->
+        </div>
+    </div>
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        
+        generateBtn.addEventListener('click', async () => {
+            const response = await fetch('/generate-ticket', { method: 'POST' });
+            const data = await response.json();
+            if (response.ok) {
+                qrContainer.innerHTML = `
+                    <img id="qrqr" class="m-auto" src="${data.qrCode}" class="h-[300px] w-[300px] m-auto" alt="QR Code">
+                    <p class="text-center">Ticket ID: ${data.id}</p>
+                `;
+                printContent(qrContainer.querySelector('img'));
+            } else {
+                alert('Failed to generate ticket.');
+            }
+        });
+
+        function printContent(element) {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write('<html><head><title>Print QR Code</title></head><body>');
+            printWindow.document.write(element.outerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+            printWindow.onafterprint = function() {
+                printWindow.close();
+            };
+        }
+
+        function formatDateTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
+        }
+
+        function updateDateTime() {
+            document.getElementById('datetime').textContent = formatDateTime();
+        }
+
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+    </script>
+</body>
+</html>
