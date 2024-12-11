@@ -5,6 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generate QR Code</title>
     <script src="https://cdn.tailwindcss.com"></script>
+	<style>
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            #print-ticket {
+                display: block !important;
+                margin: auto;
+                padding: 16px;
+                border: 1px solid #000;
+                max-width: 300px;
+            }
+            #generateBtn {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
 <body class="p-4 flex justify-center items-center w-full h-screen bg-neutral-950 text-gray-200">
     <div class="flex flex-col items-center">
@@ -22,31 +40,76 @@
     <script>
         const generateBtn = document.getElementById('generateBtn');
         
-        generateBtn.addEventListener('click', async () => {
-            const response = await fetch('/generate-ticket', { method: 'POST' });
-            const data = await response.json();
-            if (response.ok) {
-                qrContainer.innerHTML = `
-                    <img id="qrqr" class="m-auto" src="${data.qrCode}" class="h-[300px] w-[300px] m-auto" alt="QR Code">
-                    <p class="text-center">Ticket ID: ${data.id}</p>
+		generateBtn.addEventListener('click', async () => {
+			const response = await fetch('/generate-ticket', { method: 'POST' });
+			const data = await response.json();
+			if (response.ok) {
+				qrContainer.innerHTML = `
+                    <div id="print-ticket" class="bg-white text-black p-4 rounded-lg shadow-md text-center">
+                        <h2 class="text-xl font-bold">Parking Ticket</h2>
+                        <div class="my-4">
+                            <img src="${data.qrCode}" alt="QR Code" class="h-[150px] w-[150px] mx-auto">
+                        </div>
+                        <p class="text-sm font-medium"><strong>${data.id}</strong></p>
+                        <p class="text-sm font-medium">${formatDateTime()}</p>
+                        <p class="text-sm italic mt-2">Keep this ticket safe!</p>
+                    </div>
                 `;
-                printContent(qrContainer.querySelector('img'));
-            } else {
-                alert('Failed to generate ticket.');
-            }
-        });
+				printContent(qrContainer);
+			} else {
+				alert('Failed to generate ticket.');
+			}
+		});
 
-        function printContent(element) {
-            const printWindow = window.open('', '', 'height=600,width=800');
-            printWindow.document.write('<html><head><title>Print QR Code</title></head><body>');
-            printWindow.document.write(element.outerHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.print();
-            printWindow.onafterprint = function() {
-                printWindow.close();
-            };
-        }
+		function printContent(container) {
+			const printWindow = window.open('', '', 'height=600,width=800');
+			printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Print Parking Ticket</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            text-align: center;
+                            margin: 0;
+                            padding: 20px;
+                        }
+                        #print-ticket {
+                            margin: auto;
+                            padding: 16px;
+                            border: 1px solid #000;
+                            max-width: 300px;
+                            background: white;
+                        }
+                        img {
+                            max-width: 100%;
+                            height: auto;
+                        }
+                        .text-sm {
+                            font-size: 12px;
+                        }
+                        .font-medium {
+                            font-weight: 500;
+                        }
+                        .font-bold {
+                            font-weight: bold;
+                        }
+                        .italic {
+                            font-style: italic;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${container.innerHTML}
+                </body>
+                </html>
+            `);
+			printWindow.document.close();
+			printWindow.print();
+			printWindow.onafterprint = function() {
+				printWindow.close();
+			};
+		}
 
         function formatDateTime() {
             const now = new Date();

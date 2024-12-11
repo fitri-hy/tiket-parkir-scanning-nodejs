@@ -11,19 +11,41 @@
 </head>
 <body class="w-full bg-neutral-900 text-gray-200 p-4">
     <section class="w-full lg:flex gap-6">
-        <div class="w-full flex justify-center lg:max-w-screen-sm">
+        <div class="relative w-full flex justify-center lg:max-w-screen-sm">
             <div class="flex flex-col justify-center p-4 bg-neutral-800 rounded">
                 <div class="relative flex flex-col justify-center items-center">
                     <video id="video" class="h-full w-full min-w-[600px] min-h-[400px] rounded" autoplay></video>
                     <canvas id="canvas" hidden></canvas>
                     <div id="scanner-frame" class="hidden lg:flex border-4 border-green-500 absolute lg:w-[250px] lg:h-[250px] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
-                </div>
+				</div>
                 <p id="output" class="w-full text-center px-4 pt-4 inline-block">
                     Scan a QR Code to check ticket details
                 </p>
             </div>
+			<button id="toggle-camera-button" class="absolute top-2 left-2 p-2 z-50 rounded bg-neutral-900 hover:bg-neutral-950">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6">
+				  <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+				  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+				</svg>
+			</button>
         </div>
         <div class="w-full max-h-[500px] mt-4 lg:mt-0">
+			<div class="w-full flex items-center mb-2">
+				<input 
+					type="text" 
+					id="manual-ticket-id" 
+					class="w-full p-2 bg-neutral-800 rounded-l border-l border-t border-b border-neutral-700 focus:outline-none" 
+					placeholder="Enter Ticket ID">
+				<button 
+					id="check-ticket-button" 
+					class="px-4 flex gap-1 items-center py-2 bg-green-800 hover:bg-green-700 rounded-r border-r border-t border-b border-neutral-700">
+					<span>Check</span>
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6">
+					  <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+					</svg>
+				</button>
+			</div>
+
             <table id="ticket-table" class="w-full border-collapse overflow-y-auto">
                 <thead>
                     <tr class="bg-neutral-800">
@@ -42,33 +64,40 @@
     <section class="mt-12">
         <div class="w-full flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold">All Data</h2>
-            <button id="refresh-button" class="px-4 py-2 bg-neutral-800 rounded">Refresh Data</button>
+            <button id="refresh-button" class="px-4 flex items-center gap-1 py-2 bg-yellow-800 hover:bg-yellow-700 rounded" onclick="location.reload()">
+				<span>Refresh Data</span>
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6">
+				  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+				</svg>
+			</button>
         </div>
         <table id="ticketsTable" class="pt-2 display responsive nowrap" style="width:100%">
             <thead class="bg-neutral-800">
                 <tr>
-                    <th class="border border-neutral-700">ID</th>
-                    <th class="border border-neutral-700">IN</th>
-                    <th class="border border-neutral-700">Paid</th>
+                    <th class="border border-neutral-700 p-2 text-left">ID</th>
+                    <th class="border border-neutral-700 p-2 text-left">IN</th>
+                    <th class="border border-neutral-700 p-2 text-left">STATUS</th>
                 </tr>
             </thead>
             <tbody>
                 <% tickets.forEach(ticket => { %>
                     <tr>
-                        <td class="border border-neutral-700"><%= ticket.id %></td>
-                        <td class="border border-neutral-700">
+                        <td class="border border-neutral-700 p-2"><%= ticket.id %></td>
+                        <td class="border border-neutral-700 p-2">
                             <%= (() => {
                                 const date = new Date(ticket.createdAt);
                                 const hours = String(date.getHours()).padStart(2, '0');
                                 const minutes = String(date.getMinutes()).padStart(2, '0');
                                 const seconds = String(date.getSeconds()).padStart(2, '0');
                                 const day = String(date.getDate()).padStart(2, '0');
-                                const month = String(date.getMonth() + 1).padStart(2, '0'); // Bulan mulai dari 0
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
                                 const year = date.getFullYear();
                                 return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
                             })() %>
                         </td>
-                        <td class="border border-neutral-700"><%= ticket.paid ? 'Paid' : 'Unpaid' %></td>
+                        <td class="border border-neutral-700 p-2 <%= ticket.paid ? 'text-green-500' : 'text-rose-500' %>">
+							<%= ticket.paid ? 'Paid' : 'Unpaid' %>
+						</td>
                     </tr>
                 <% }) %>
             </tbody>
@@ -80,41 +109,20 @@
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
     
     <script>
-        $(document).ready(function() {
-            const table = $('#ticketsTable').DataTable({
-                responsive: true
-            });
-            $('#refresh-button').click(function() {
-                $.ajax({
-                    url: '/api/tickets',
-                    method: 'GET',
-                    success: function(response) {
-                        table.clear();
-                        response.tickets.forEach(ticket => {
-                            table.row.add([
-                                ticket.id,
-                                (() => {
-                                    const date = new Date(ticket.createdAt);
-                                    const hours = String(date.getHours()).padStart(2, '0');
-                                    const minutes = String(date.getMinutes()).padStart(2, '0');
-                                    const seconds = String(date.getSeconds()).padStart(2, '0');
-                                    const day = String(date.getDate()).padStart(2, '0');
-                                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                                    const year = date.getFullYear();
-                                    return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
-                                })(),
-                                ticket.paid ? 'Paid' : 'Unpaid'
-                            ]).draw();
-                        });
-                    },
-                    error: function() {
-                        alert('Failed to refresh data');
-                    }
-                });
-            });
-        });
-    </script>
-    <script>
+		document.getElementById("check-ticket-button").addEventListener("click", () => {
+			const manualTicketId = document.getElementById("manual-ticket-id").value.trim();
+			if (manualTicketId) {
+				checkTicket(manualTicketId);
+			} else {
+				alert("Please enter a valid Ticket ID.");
+			}
+		});
+		document.getElementById("refresh-button").addEventListener("click", () => {
+			location.reload();
+		});
+		
+		let currentStream = null;
+		let currentDeviceId = null;
         const video = document.getElementById("video");
         const canvas = document.getElementById("canvas");
         const context = canvas.getContext("2d");
@@ -122,17 +130,40 @@
         const ticketTableBody = document.querySelector("#ticket-table tbody");
         const seenTicketIds = new Set();
         let clearTableTimer = null;
-        function startCamera() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then((stream) => {
-                    video.srcObject = stream;
-                })
-                .catch(err => {
-                    console.error('Error accessing camera:', err);
-                    output.textContent = 'Error accessing camera';
-                });
-        }
-
+        function startCamera(deviceId = null) {
+			const constraints = deviceId ? { video: { deviceId: { exact: deviceId } } } : { video: { facingMode: "environment" } };
+			if (currentStream) {
+				const tracks = currentStream.getTracks();
+				tracks.forEach(track => track.stop());
+			}
+			navigator.mediaDevices.getUserMedia(constraints)
+				.then((stream) => {
+					video.srcObject = stream;
+					currentStream = stream;
+					currentDeviceId = deviceId;
+				})
+				.catch(err => {
+					// console.error('Error accessing camera:', err);
+					output.textContent = 'Error accessing camera';
+				});
+		}
+		function toggleCamera() {
+			navigator.mediaDevices.enumerateDevices()
+				.then(devices => {
+					const videoDevices = devices.filter(device => device.kind === 'videoinput');
+					if (videoDevices.length > 1) {
+						const nextDevice = videoDevices.find(device => device.deviceId !== currentDeviceId);
+						if (nextDevice) {
+							startCamera(nextDevice.deviceId);
+						}
+					} else {
+						console.log('Only one camera found');
+					}
+				})
+				.catch(err => {
+					console.error('Error accessing devices:', err);
+				});
+		}
         let isProcessing = false;
         async function checkTicket(id) {
             if (seenTicketIds.has(id)) {
@@ -263,6 +294,7 @@
             }, 5000);
         }
         video.addEventListener('play', scanQRCode);
+		document.getElementById("toggle-camera-button").addEventListener("click", toggleCamera);
         startCamera();
     </script>
 </section>
